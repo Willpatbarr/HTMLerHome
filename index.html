@@ -36,8 +36,20 @@
       }
     ];
     const key='htmler-home-projects-v1',grid=document.querySelector('#grid'),search=document.querySelector('#search'),count=document.querySelector('#count'),dialog=document.querySelector('#dialog'),form=document.querySelector('#form');
-    let projects=JSON.parse(localStorage.getItem(key)||'null')||STARTER_PROJECTS;
-    const save=()=>localStorage.setItem(key,JSON.stringify(projects));
+    const removedKey=key+'-removed-starters';
+    // Starters live in source, so they must be merged in on every load — not just
+    // when storage is empty, or editing STARTER_PROJECTS would stop having any
+    // effect the moment the user saves anything. A starter the user edited is
+    // stored under the same id and wins; one they removed stays removed.
+    const removed=new Set(JSON.parse(localStorage.getItem(removedKey)||'[]'));
+    const stored=JSON.parse(localStorage.getItem(key)||'null')||[];
+    let projects=[...stored,...STARTER_PROJECTS.filter(s=>!removed.has(s.id)&&!stored.some(p=>p.id===s.id))];
+    // Untouched starters are never written to storage; that keeps them live.
+    const isPristineStarter=p=>STARTER_PROJECTS.some(s=>s.id===p.id&&JSON.stringify(s)===JSON.stringify(p));
+    const save=()=>{
+      localStorage.setItem(key,JSON.stringify(projects.filter(p=>!isPristineStarter(p))));
+      localStorage.setItem(removedKey,JSON.stringify([...removed]));
+    };
     const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const documentsRoot='/Users/williambarr/Documents/';
     // Returns a usable href, or null when the path can't be reached from a hosted
@@ -58,7 +70,7 @@
     function openForm(p){document.querySelector('#form-title').textContent=p?'Edit project':'Add project';document.querySelector('#edit-id').value=p?.id||'';document.querySelector('#name').value=p?.name||'';document.querySelector('#url').value=p?.url||'';document.querySelector('#note').value=p?.note||'';dialog.showModal();document.querySelector('#name').focus()}
     document.querySelector('#add').onclick=()=>openForm();document.querySelector('#cancel').onclick=()=>dialog.close();search.oninput=render;
     form.onsubmit=e=>{e.preventDefault();const id=document.querySelector('#edit-id').value,item={id:id||crypto.randomUUID(),name:document.querySelector('#name').value.trim(),url:document.querySelector('#url').value.trim(),note:document.querySelector('#note').value.trim()};projects=id?projects.map(p=>p.id===id?item:p):[...projects,item];save();render();dialog.close()};
-    grid.onclick=e=>{const edit=e.target.dataset.edit,del=e.target.dataset.delete;if(edit)openForm(projects.find(p=>p.id===edit));if(del&&confirm('Remove this project link?')){projects=projects.filter(p=>p.id!==del);save();render()}};
+    grid.onclick=e=>{const edit=e.target.dataset.edit,del=e.target.dataset.delete;if(edit)openForm(projects.find(p=>p.id===edit));if(del&&confirm('Remove this project link?')){if(STARTER_PROJECTS.some(s=>s.id===del))removed.add(del);projects=projects.filter(p=>p.id!==del);save();render()}};
     const nav=document.querySelector('.skipto');nav.querySelector('.skipto-toggle').addEventListener('click',()=>nav.classList.toggle('open'));document.addEventListener('click',e=>{if(!nav.contains(e.target))nav.classList.remove('open')});nav.querySelectorAll('.skipto-menu a').forEach(a=>a.addEventListener('click',()=>{nav.classList.remove('open');requestAnimationFrame(()=>document.activeElement&&document.activeElement.blur())}));render();
   </script>
 </body>
